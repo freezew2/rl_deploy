@@ -2,8 +2,6 @@
 
 set -e pipefail
 
-cd $(dirname $0)
-
 source /opt/ros/humble/setup.bash
 export ROS_DOMAIN_ID=20
 
