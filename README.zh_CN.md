@@ -368,7 +368,7 @@ bash install/deploy_assets/scripts/start_rl_control_sim.sh
 docker start a2_deploy && docker exec -it a2_deploy /bin/bash
 
 # 运行虚拟摇杆
-cd /home/agi/a2_deploy_workspace
+cd /home/agi/a2_deploy_workspace/deploy
 python3 install/deploy_assets/scripts/joy_interface.py
 ```
 
