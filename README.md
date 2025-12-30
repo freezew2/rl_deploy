@@ -368,7 +368,7 @@ The interface after successful execution is as follows:
 docker start a2_deploy && docker exec -it a2_deploy /bin/bash
 
 # Run the virtual joystick
-cd /home/agi/a2_deploy_workspace
+cd /home/agi/a2_deploy_workspace/deploy
 python3 install/deploy_assets/scripts/joy_interface.py
 ```
 
