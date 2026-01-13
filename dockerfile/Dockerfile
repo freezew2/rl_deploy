@@ -126,10 +126,13 @@ RUN groupadd -g ${GID} ${USERNAME} || true && \
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 
+# add /home/agi/.local/bin to PATH for cmake installation
+RUN echo "export PATH=/home/${USERNAME}/.local/bin:$PATH" >> /home/${USERNAME}/.bashrc
+
 # automatically source ROS environment in non-root user's bashrc for interactive use
 RUN echo "source /opt/ros/humble/setup.bash" >> /home/${USERNAME}/.bashrc
 
-# add /home/agi/.local/bin to PATH for cmake installation
-RUN echo "export PATH=/home/${USERNAME}/.local/bin:$PATH" >> /home/${USERNAME}/.bashrc
+# add ROS_DOMAIN_ID=20 to avoid DDS conflicts in multi-robot scenarios
+RUN echo "export ROS_DOMAIN_ID=20" >> /home/${USERNAME}/.bashrc
 
 CMD ["/bin/bash"]
