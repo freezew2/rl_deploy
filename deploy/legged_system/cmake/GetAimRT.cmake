@@ -23,15 +23,8 @@ function(get_aimrt)
   FetchContent_GetProperties(aimrt)
   if(NOT aimrt_POPULATED)
     set(AIMRT_BUILD_RUNTIME ON)
-
-    set(AIMRT_BUILD_WITH_PROTOBUF ON)
-
     set(AIMRT_BUILD_WITH_ROS2 ON)
     set(AIMRT_BUILD_ROS2_PLUGIN ON)
-
-    set(AIMRT_BUILD_TIME_MANIPULATOR_PLUGIN ON)
-    set(AIMRT_BUILD_ECHO_PLUGIN ON)
-    set(AIMRT_BUILD_ICEORYX_PLUGIN ON)
 
     set(CMAKE_POLICY_VERSION_MINIMUM
         3.5
