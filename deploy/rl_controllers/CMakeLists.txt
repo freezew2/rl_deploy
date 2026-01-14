@@ -1,10 +1,9 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.24)
 project(rl_controllers)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -54,6 +53,7 @@ ament_target_dependencies(
 target_link_libraries(rl_controllers
   PRIVATE
   onnxruntime
+
 )
 
 target_compile_definitions(rl_controllers PRIVATE "RL_CONTROLLERS_BUILDING_DLL")

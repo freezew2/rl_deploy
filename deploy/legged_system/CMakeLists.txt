@@ -1,17 +1,19 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 project(legged_system)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+# set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
+set(AIMRT_MUJOCO_SIM_BUILD_WITH_ROS2 ON)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # Add the custom cmake directory to CMAKE_MODULE_PATH
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
-
+include(GetAimRT)
+find_package(AimRT REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
@@ -74,6 +76,8 @@ target_link_libraries(legged_system
                       joint_msgs::joint_msgs__rosidl_typesupport_cpp
                       joint_msgs::joint_msgs__rosidl_typesupport_fastrtps_cpp
                       joint_msgs::joint_msgs__rosidl_typesupport_introspection_cpp
+                      aimrt::interface::aimrt_module_ros2_interface
+                      aimrt::runtime::core
                       )
 
 

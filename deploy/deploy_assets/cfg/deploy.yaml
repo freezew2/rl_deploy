@@ -1,0 +1,27 @@
+# Copyright (c) 2023, AgiBot Inc.
+# All rights reserved.
+
+aimrt:
+  plugin:
+    plugins:
+      # - name: iceoryx_plugin
+      #   path: libaimrt_iceoryx_plugin.so
+      - name: ros2_plugin
+        path: /home/agi/a2_deploy_workspace/deploy/deploy_assets/cfg/libaimrt_ros2_plugin.so
+        options:
+          node_name: rl_deploy #创建的ROS2 节点名
+  log:
+    core_lvl: INFO # Trace/Debug/Info/Warn/Error/Fatal/Off
+    backends:
+      - type: console
+
+  channel:
+    backends:
+      - type: ros2
+
+    pub_topics_options:
+      - topic_name: "(.*)"
+        enable_backends: [ros2]
+    sub_topics_options:
+      - topic_name: "(.*)"
+        enable_backends: [ros2]
