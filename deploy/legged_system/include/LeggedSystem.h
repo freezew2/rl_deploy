@@ -39,9 +39,9 @@
 #include "ClosedAnkleWristParam.h"
 #include "LoopAnkleAnalyticalSolver.h"
 
-#include "core/aimrt_core.h"
 #include "aimrt_module_cpp_interface/core.h"
 #include "aimrt_module_ros2_interface/channel/ros2_channel.h"
+#include "core/aimrt_core.h"
 using namespace aimrt::runtime::core;
 namespace legged {
 
@@ -66,6 +66,7 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
   hardware_interface::return_type read(const rclcpp::Time &time, const rclcpp::Duration &period) override;
   hardware_interface::return_type write(const rclcpp::Time &time, const rclcpp::Duration &period) override;
   void aimrt_init();
+
  private:
   void processClosedChainState();
   void processClosedChainCommands();
@@ -106,23 +107,20 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
 
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr motorCmdTorquePublisher_;
 
- 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr yesenseImuSub_;
   std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
   std::thread executor_thread_;
 
-
-  AimRTCore core;
-  AimRTCore::Options options;
+  aimrt::runtime::core::AimRTCore core;
+  aimrt::runtime::core::AimRTCore::Options options;
   aimrt::CoreRef module_handle;
   aimrt::channel::SubscriberRef aimRTMotorStateSubscriber_;
   aimrt::channel::SubscriberRef aimRTArmMotorStateSubscriber_;
 
-  aimrt::channel::PublisherRef aimRTMotorCommandPubulisher_;  
+  aimrt::channel::PublisherRef aimRTMotorCommandPubulisher_;
   aimrt::channel::PublisherRef aimRTArmMotorCommandPubulisher_;
-  std::unique_ptr<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>> aimRTMotorCommandPubulisher__proxy_;
-  std::unique_ptr<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>> aimRTArmMotorCommandPubulisher__proxy_;
-
+  std::unique_ptr<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>> aimRTMotorCommandPubulisherProxy_;
+  std::unique_ptr<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>> aimRTArmMotorCommandPubulisherProxy_;
 
   std::shared_ptr<rclcpp::Node> node_;
 

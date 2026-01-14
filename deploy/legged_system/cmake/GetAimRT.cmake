@@ -1,7 +1,3 @@
-# Copyright (c) 2023, AgiBot Inc.
-# All rights reserved.
-cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
-
 include(FetchContent)
 
 message(STATUS "get aimrt ...")
@@ -23,7 +19,6 @@ else()
     OVERRIDE_FIND_PACKAGE)
 endif()
 
-# Wrap it in a function to restrict the scope of the variables
 function(get_aimrt)
   FetchContent_GetProperties(aimrt)
   if(NOT aimrt_POPULATED)
@@ -34,13 +29,16 @@ function(get_aimrt)
     set(AIMRT_BUILD_WITH_ROS2 ON)
     set(AIMRT_BUILD_ROS2_PLUGIN ON)
 
-
     set(AIMRT_BUILD_TIME_MANIPULATOR_PLUGIN ON)
     set(AIMRT_BUILD_ECHO_PLUGIN ON)
     set(AIMRT_BUILD_ICEORYX_PLUGIN ON)
-    
-    set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "Minimum CMake policy version" FORCE)
-    set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "Disable yaml-cpp tests" FORCE)
+
+    set(CMAKE_POLICY_VERSION_MINIMUM
+        3.5
+        CACHE STRING "Minimum CMake policy version" FORCE)
+    set(YAML_CPP_BUILD_TESTS
+        OFF
+        CACHE BOOL "Disable yaml-cpp tests" FORCE)
     FetchContent_MakeAvailable(aimrt)
   endif()
 endfunction()

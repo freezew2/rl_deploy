@@ -75,6 +75,7 @@ RUN if [ "${INSTALL_GPP13}" = "1" ]; then \
       apt-get update && \
       apt-get install -y --no-install-recommends g++-13 && \
       update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 || true && \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 || true && \
       rm -rf /var/lib/apt/lists/* ; \
     fi
 

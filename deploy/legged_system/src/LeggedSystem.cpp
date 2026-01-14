@@ -340,44 +340,40 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
   motorCmdTorquePublisher_ =
       this->node_->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/motor_cmd_torque", 1);
 
-
   imuPub_ = this->node_->create_publisher<sensor_msgs::msg::Imu>("/imu/data", 10);
 
   executor_ = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
   executor_->add_node(this->node_);
   executor_thread_ = std::thread([this]() { executor_->spin(); });
 
-
-
   aimrt_init();
   return hardware_interface::CallbackReturn::SUCCESS;
 }
-void LeggedSystemHardware::aimrt_init()
-{
-
-      const std::string cfg_path = "../deploy_assets/cfg/deploy.yaml";
-    if (std::filesystem::exists(cfg_path)) {
-      options.cfg_file_path = cfg_path;
-    } else {
-      std::cerr << "Configuration file does not exist: " << cfg_path << std::endl;
-      exit(-1);
-    }
-    try {
-      std::cout << "Preparing to initialize AimRTCore, configuration file: " << options.cfg_file_path << std::endl;
-      core.Initialize(options);
-      std::cout << "AimRTCore Init Success" << std::endl;
-    } catch (const std::exception& e) {
-      std::cerr << "AimRTCore Init error: " << e.what() << std::endl;
-      exit(-1);
-    }
-      aimrt::CoreRef module_handle(
-        core.GetModuleManager().CreateModule("NormalPublisherModule"));
+void LeggedSystemHardware::aimrt_init(){
+  const std::string cfg_path = "../deploy_assets/cfg/deploy.yaml";
+  if (std::filesystem::exists(cfg_path)) {
+    options.cfg_file_path = cfg_path;
+  } 
+  else {
+    std::cerr << "Configuration file does not exist: " << cfg_path << std::endl;
+    exit(-1);
+  }
+  try {
+    std::cout << "Preparing to initialize AimRTCore, configuration file: " << options.cfg_file_path << std::endl;
+    core.Initialize(options);
+    std::cout << "AimRTCore Init Success" << std::endl;
+  } 
+  catch (const std::exception& e) {
+    std::cerr << "AimRTCore Init error: " << e.what() << std::endl;
+    exit(-1);
+  }
+  aimrt::CoreRef module_handle(core.GetModuleManager().CreateModule("NormalPublisherModule"));
   aimRTMotorCommandPubulisher_= module_handle.GetChannelHandle().GetPublisher("/body_drive/leg_joint_command");
   aimRTArmMotorCommandPubulisher_= module_handle.GetChannelHandle().GetPublisher("/body_drive/arm_joint_command");
   aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimRTMotorCommandPubulisher_);
   aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimRTArmMotorCommandPubulisher_);
-  aimRTMotorCommandPubulisher__proxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimRTMotorCommandPubulisher_);
-  aimRTArmMotorCommandPubulisher__proxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimRTArmMotorCommandPubulisher_);
+  aimRTMotorCommandPubulisherProxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimRTMotorCommandPubulisher_);
+  aimRTArmMotorCommandPubulisherProxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimRTArmMotorCommandPubulisher_);
   
   aimRTMotorStateSubscriber_= module_handle.GetChannelHandle().GetSubscriber("/body_drive/leg_joint_state");
   aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
@@ -386,14 +382,14 @@ void LeggedSystemHardware::aimrt_init()
     this->legStateCallback(std::const_pointer_cast<joint_msgs::msg::JointState>(msg));
   });
 
-  
   aimRTArmMotorStateSubscriber_= module_handle.GetChannelHandle().GetSubscriber("/body_drive/arm_joint_state");
   aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
   aimRTArmMotorStateSubscriber_,
   [this](aimrt::channel::ContextRef, const std::shared_ptr<const joint_msgs::msg::JointState>& msg) {
     this->armStateCallback(std::const_pointer_cast<joint_msgs::msg::JointState>(msg));
   });
-    auto fu = core.AsyncStart();
+
+  auto fu = core.AsyncStart();
 }
 hardware_interface::CallbackReturn LeggedSystemHardware::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/) {

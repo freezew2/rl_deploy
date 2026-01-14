@@ -3,7 +3,6 @@
 set -e pipefail
 
 source /opt/ros/humble/setup.bash
-export ROS_DOMAIN_ID=20
 
 SHELL_FOLDER=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 echo $SHELL_FOLDER
