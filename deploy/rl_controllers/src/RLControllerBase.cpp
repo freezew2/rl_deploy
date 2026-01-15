@@ -26,7 +26,7 @@ controller_interface::CallbackReturn RLControllerBase::on_init() {
                 "idx13_left_arm_joint1", "idx14_left_arm_joint2", "idx15_left_arm_joint3", "idx16_left_arm_joint4", "idx17_left_arm_joint5", "idx18_left_arm_joint6", "idx19_left_arm_joint7",
                 "idx20_right_arm_joint1", "idx21_right_arm_joint2", "idx22_right_arm_joint3", "idx23_right_arm_joint4", "idx24_right_arm_joint5", "idx25_right_arm_joint6", "idx26_right_arm_joint7"};
 
-  // 将参数服务器中的变量存入joint_names_,command_interface, state_interface
+  // Store variables from the parameter server into joint_names_, command_interface_types_, and state_interface_types_
   joint_names_ = auto_declare<std::vector<std::string>>("joints", joint_names_);
   command_interface_types_ =
       auto_declare<std::vector<std::string>>("command_interfaces", command_interface_types_);
@@ -214,11 +214,11 @@ controller_interface::CallbackReturn RLControllerBase::on_configure([[maybe_unus
 // Second
 controller_interface::InterfaceConfiguration RLControllerBase::command_interface_configuration()
     const {
-  // 配置初始化
+  // Initialize configuration
   controller_interface::InterfaceConfiguration conf = {config_type::INDIVIDUAL, {}};
-  // 预留空间 大小为关节数量乘每个关节的指令数量
+  // Reserve space: number of joints × number of command interfaces
   conf.names.reserve(joint_names_.size() * command_interface_types_.size());
-  // 遍历所有关节名称和命令类型接口，并存入conf.names中
+  // Iterate over all joint names and command interface types, and store them in conf.names
   for (const auto &joint_name : joint_names_) {
     for (const auto &interface_type : command_interface_types_) {
       conf.names.push_back(joint_name + "/" + interface_type);
@@ -296,7 +296,7 @@ controller_interface::CallbackReturn RLControllerBase::on_activate(const rclcpp_
 }
 
 void RLControllerBase::starting() {
-  // 更新状态
+  // Update Status
   updateStateEstimation(get_node()->now(), rclcpp::Duration::from_seconds(0.002));
   currentJointAngles_.resize(actuatedDofNum_);
 

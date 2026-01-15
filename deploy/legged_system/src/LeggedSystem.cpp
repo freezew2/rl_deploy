@@ -372,20 +372,21 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
   executor_->add_node(this->node_);
   executor_thread_ = std::thread([this]() { executor_->spin(); });
 
-  aimrt_init();
+  aimrtInit();
 
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
-void LeggedSystemHardware::aimrt_init(){
-
+void LeggedSystemHardware::aimrtInit(){
+  // Initialize
   const std::string cfg_path = "../deploy_assets/cfg/deploy.yaml";
-  if (std::filesystem::exists(cfg_path)) {
-    options.cfg_file_path = cfg_path;
-  } else {
+  if (!std::filesystem::exists(cfg_path)) {
     RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Config file not found: %s", cfg_path.c_str());
     exit(-1);
   }
+
+  options.cfg_file_path = cfg_path;
+
   try {
     RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "Initializing AimRTCore, config file: %s", options.cfg_file_path.c_str());
     core.Initialize(options);
@@ -394,31 +395,60 @@ void LeggedSystemHardware::aimrt_init(){
     RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "AimRTCore initialization error: %s", e.what());
     exit(-1);
   }
+
+  // Create Module
   aimrt::CoreRef module_handle(core.GetModuleManager().CreateModule("LeggedSystemModule"));
+
+  // Create Publishers
   aimrtLegCmdPublisher_= module_handle.GetChannelHandle().GetPublisher("/body_drive/leg_joint_command");
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(),
+                            aimrtLegCmdPublisher_, "Get publisher for topic '{}' failed.", "/body_drive/leg_joint_command");
+
   aimrtArmCmdPublisher_= module_handle.GetChannelHandle().GetPublisher("/body_drive/arm_joint_command");
-  aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimrtLegCmdPublisher_);
-  aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimrtArmCmdPublisher_);
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(),
+                          aimrtArmCmdPublisher_, "Get publisher for topic '{}' failed.", "/body_drive/arm_joint_command");
+
+  bool ret = aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimrtLegCmdPublisher_);
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(), ret, "Failed to register publish type for aimrtLegCmdPublisher_ (topic: /body_drive/leg_joint_command).");
+
+  ret = aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimrtArmCmdPublisher_);
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(), ret, "Failed to register publish type for aimrtArmCmdPublisher_ (topic: /body_drive/arm_joint_command).");
+  
   aimrtLegCmdPublisherProxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimrtLegCmdPublisher_);
   aimrtArmCmdPublisherProxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimrtArmCmdPublisher_);
   
+  // Create Subscribers
   aimRTMotorStateSubscriber_= module_handle.GetChannelHandle().GetSubscriber("/body_drive/leg_joint_state");
-  aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(),
+                            aimRTMotorStateSubscriber_, "Get subscriber for topic '{}' failed.", "/body_drive/leg_joint_state");
+
+  ret = aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
     aimRTMotorStateSubscriber_,
     std::bind(&LeggedSystemHardware::legStateCallback, this, std::placeholders::_1));
-  
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(), ret, "Failed to subscribe to topic '/body_drive/leg_joint_state'.");
+
   aimRTArmMotorStateSubscriber_= module_handle.GetChannelHandle().GetSubscriber("/body_drive/arm_joint_state");
-  aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(),
+                           aimRTArmMotorStateSubscriber_, "Get subscriber for topic '{}' failed.", "/body_drive/arm_joint_state");
+
+  ret = aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
     aimRTArmMotorStateSubscriber_,
     std::bind(&LeggedSystemHardware::armStateCallback, this, std::placeholders::_1));
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(), ret, "Failed to subscribe to topic '/body_drive/arm_joint_state'.");
 
   imuSubscriber_= module_handle.GetChannelHandle().GetSubscriber("/body_drive/imu/data");
-  aimrt::channel::Subscribe<sensor_msgs::msg::Imu>(
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(),
+                           imuSubscriber_, "Get subscriber for topic '{}' failed.", "/body_drive/imu/data");
+
+  ret = aimrt::channel::Subscribe<sensor_msgs::msg::Imu>(
     imuSubscriber_,
     std::bind(&LeggedSystemHardware::imuCallback, this, std::placeholders::_1));
-    
+  AIMRT_HL_CHECK_ERROR_THROW(module_handle.GetLogger(), ret, "Failed to subscribe to topic '/body_drive/imu/data'.");
+  
+  //start Async
   auto fu = core.AsyncStart();
 }
+
 hardware_interface::CallbackReturn LeggedSystemHardware::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/) {
   RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "Deactivating ...please wait...");
@@ -427,7 +457,10 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_deactivate(
     executor_->cancel();
     executor_thread_.join();
   }
+  
+  // Shutdown AimRTCore
   core.Shutdown();
+
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 

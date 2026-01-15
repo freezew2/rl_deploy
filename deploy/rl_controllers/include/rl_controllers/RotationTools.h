@@ -61,7 +61,7 @@ Eigen::Matrix<SCALAR_T, 3, 1> quatToXyz(const Eigen::Quaternion<SCALAR_T> &q) {
   // Pitch (Y-axis rotation)
   SCALAR_T sinp = 2 * (q.w() * q.y() - q.z() * q.x());
   if (std::abs(sinp) >= 1)
-    xyz(1) = std::copysign(M_PI / 2, sinp);  // 使用copysign来处理极端情况
+    xyz(1) = std::copysign(M_PI / 2, sinp);  // Use copysign to handle extreme cases
   else
     xyz(1) = std::asin(sinp);
 

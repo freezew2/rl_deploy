@@ -16,8 +16,7 @@
   <depend>rclcpp_lifecycle</depend>
   <depend>realtime_tools</depend>
   <depend>joint_msgs</depend>
-  <depend>controller_interface</depend>
-  
+
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>ros2controlcli</exec_depend>
   <exec_depend>ros2launch</exec_depend>

@@ -27,8 +27,6 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 
-#include <controller_interface/controller_interface.hpp>
-
 #include "Types.h"
 #include "realtime_tools/realtime_box.hpp"
 #include "realtime_tools/realtime_buffer.hpp"
@@ -77,7 +75,7 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
   void processClosedChainState();
   void processClosedChainCommands();
 
-  void aimrt_init();
+  void aimrtInit();
 
   void imuCallback(const std::shared_ptr<const sensor_msgs::msg::Imu>& msg) {
     bodyDriveIMU_ = *msg;
@@ -116,7 +114,7 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
 
     tfBroadcaster_->sendTransform(transformStamped);
   }
-  
+
   MotorData SerialJointData_[26]{};
   MotorDataFloat bodyDriveJointData_[26]{};
   sensor_msgs::msg::Imu bodyDriveIMU_;
