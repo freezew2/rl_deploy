@@ -179,8 +179,6 @@ class RLControllerBase : public controller_interface::ControllerInterface {
 
   virtual void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
   virtual void joyInfoCallback(const sensor_msgs::msg::Joy::SharedPtr msg);
-  virtual void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
-  virtual void publishImuTransform(const sensor_msgs::msg::Imu& imu_msg);
 
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;
@@ -224,7 +222,6 @@ class RLControllerBase : public controller_interface::ControllerInterface {
 
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmdVelSub_;
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joyInfoSub_;
-  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub_;
   rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr emgStopSub_;
   rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr startCtrlSub_;
   rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr walkModeSub_;

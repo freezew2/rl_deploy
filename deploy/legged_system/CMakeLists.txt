@@ -12,6 +12,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 include(GetAimRT)
 
 find_package(Eigen3 REQUIRED)
+find_package(controller_interface REQUIRED)
 
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
@@ -29,6 +30,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
     rclcpp_lifecycle
     realtime_tools
     std_msgs
+    tf2_ros
     joint_msgs)
 
 find_package(ament_cmake REQUIRED)
@@ -47,7 +49,7 @@ target_include_directories(
   PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
          $<INSTALL_INTERFACE:include/legged_system>)
 
-ament_target_dependencies(legged_system PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS})
+ament_target_dependencies(legged_system PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS} controller_interface tf2_ros)
 
 find_package(Boost REQUIRED)
 
