@@ -354,21 +354,8 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
 
 void LeggedSystemHardware::aimrt_init(){
   const std::string cfg_path = "../deploy_assets/cfg/deploy.yaml";
-  if (std::filesystem::exists(cfg_path)) {
-    options.cfg_file_path = cfg_path;
-  } 
-  else {
-    std::cerr << "Configuration file does not exist: " << cfg_path << std::endl;
-    exit(-1);
-  }
-  try {
-    std::cout << "Preparing to initialize AimRTCore, configuration file: " << options.cfg_file_path << std::endl;
-    core.Initialize(options);
-    std::cout << "AimRTCore Init Success" << std::endl;
-  } catch (const std::exception& e) {
-    std::cerr << "AimRTCore Init error: " << e.what() << std::endl;
-    exit(-1);
-  }
+  options.cfg_file_path = cfg_path;
+  core.Initialize(options);
   aimrt::CoreRef module_handle(core.GetModuleManager().CreateModule("NormalPublisherModule"));
   aimRTMotorCommandPubulisher_= module_handle.GetChannelHandle().GetPublisher("/body_drive/leg_joint_command");
   aimRTArmMotorCommandPubulisher_= module_handle.GetChannelHandle().GetPublisher("/body_drive/arm_joint_command");
