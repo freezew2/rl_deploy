@@ -351,6 +351,12 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
   RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "Activating ...please wait...");
 
   this->node_ = std::make_shared<rclcpp::Node>("hardware_node");
+
+  this->node_->declare_parameter<std::string>("cfg_path");
+  auto cfg_path = this->node_->get_parameter("cfg_path").as_string();
+  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "cfg_path: %s", cfg_path.c_str());
+  options.cfg_file_path = cfg_path;
+  
   motorPosPublisher_ = this->node_->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/motor_pos", 1);
   motorVelPublisher_ = this->node_->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/motor_vel", 1);
   motorTorquePublisher_ =
@@ -377,13 +383,10 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
 
 void LeggedSystemHardware::aimrtInit(){
   // Initialize
-  const std::string cfg_path = "../deploy_assets/cfg/deploy.yaml";
-  if (!std::filesystem::exists(cfg_path)) {
-    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Config file not found: %s", cfg_path.c_str());
+  if (!std::filesystem::exists(options.cfg_file_path)) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Config file not found: %s", options.cfg_file_path.c_str());
     exit(-1);
   }
-
-  options.cfg_file_path = cfg_path;
 
   try {
     RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "Initializing AimRTCore, config file: %s", options.cfg_file_path.c_str());

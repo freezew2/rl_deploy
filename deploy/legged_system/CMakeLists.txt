@@ -89,6 +89,9 @@ install(DIRECTORY DESTINATION share/${PROJECT_NAME})
 # Install package.xml
 install(FILES package.xml DESTINATION share/${PROJECT_NAME})
 
+# Install cfg files
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cfg/ DESTINATION bin USE_SOURCE_PERMISSIONS)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)

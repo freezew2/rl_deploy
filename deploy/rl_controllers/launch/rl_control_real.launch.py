@@ -46,7 +46,7 @@ def generate_launch_description():
     control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
-        parameters=[robot_description, controllers_config],
+        parameters=[robot_description, controllers_config, {"cfg_path": LaunchConfiguration('cfg_path')}],
         output="both",
     )
 
@@ -93,6 +93,7 @@ def generate_launch_description():
     nodes = [
         DeclareLaunchArgument('teleop_config', default_value=parameters_file),
         DeclareLaunchArgument('controllers_config', default_value='baseline'),
+        DeclareLaunchArgument('cfg_path', default_value='../install/legged_system/bin/iceoryx_chn_benchmark_cfg.yaml'),
         control_node,
         robot_state_pub_node,
         joint_state_broadcaster_spawner,

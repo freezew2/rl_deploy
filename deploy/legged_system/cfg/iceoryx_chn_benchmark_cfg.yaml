@@ -1,8 +1,8 @@
 aimrt:
   plugin:
     plugins:
-      - name: ros2_plugin
-        path: /home/agi/a2_deploy_workspace/deploy/deploy_assets/cfg/libaimrt_ros2_plugin.so
+      - name: iceoryx_plugin
+        path: /home/agi/a2_deploy_workspace/deploy/install/legged_system/bin/libaimrt_iceoryx_plugin.so
         options:
           node_name: rl_deploy 
   log:
@@ -12,11 +12,11 @@ aimrt:
 
   channel:
     backends:
-      - type: ros2
+      - type: iceoryx
 
     pub_topics_options:
       - topic_name: "(.*)"
-        enable_backends: [ros2]
+        enable_backends: [iceoryx]
     sub_topics_options:
       - topic_name: "(.*)"
-        enable_backends: [ros2]
+        enable_backends: [iceoryx]

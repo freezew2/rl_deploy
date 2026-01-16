@@ -25,7 +25,8 @@ function(get_aimrt)
     set(AIMRT_BUILD_RUNTIME ON)
     set(AIMRT_BUILD_WITH_ROS2 ON)
     set(AIMRT_BUILD_ROS2_PLUGIN ON)
-
+    set(AIMRT_BUILD_ICEORYX_PLUGIN ON)
+    
     set(CMAKE_POLICY_VERSION_MINIMUM
         3.5
         CACHE STRING "Minimum CMake policy version" FORCE)
