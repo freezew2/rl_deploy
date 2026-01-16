@@ -54,7 +54,7 @@ find_package(Boost REQUIRED)
 
 target_link_libraries(
   legged_system
-  PUBLIC joint_msgs::joint_msgs__rosidl_generator_cpp # 传递消息类型的ROS库
+  PUBLIC joint_msgs::joint_msgs__rosidl_generator_cpp # ROS library for message types
          joint_msgs::joint_msgs__rosidl_typesupport_cpp
          joint_msgs::joint_msgs__rosidl_typesupport_fastrtps_cpp
          joint_msgs::joint_msgs__rosidl_typesupport_introspection_cpp
