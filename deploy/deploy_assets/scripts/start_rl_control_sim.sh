@@ -7,7 +7,6 @@ source /opt/ros/humble/setup.bash
 SHELL_FOLDER=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 echo $SHELL_FOLDER
 pushd "$SHELL_FOLDER"/../../ || exit
-    echo $pwd
     source setup.bash
     export LD_LIBRARY_PATH=./deploy_assets/thirdparty/onnxruntime-linux-x64-1.19.2/lib:$LD_LIBRARY_PATH
     export PLUGIN_INSTALL_DIR="$PWD/legged_system/bin"
