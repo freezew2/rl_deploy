@@ -355,7 +355,7 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
   this->node_->declare_parameter<std::string>("aimrt_cfg_path");
   auto aimrt_cfg_path = this->node_->get_parameter("aimrt_cfg_path").as_string();
   RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "aimrt_cfg_path: %s", aimrt_cfg_path.c_str());
-  options.cfg_file_path = aimrt_cfg_path;
+  options_.cfg_file_path = aimrt_cfg_path;
   
   motorPosPublisher_ = this->node_->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/motor_pos", 1);
   motorVelPublisher_ = this->node_->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/motor_vel", 1);
@@ -383,14 +383,14 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
 
 void LeggedSystemHardware::aimrtInit(){
   // Initialize
-  if (!std::filesystem::exists(options.cfg_file_path)) {
-    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Config file not found: %s", options.cfg_file_path.c_str());
+  if (!std::filesystem::exists(options_.cfg_file_path)) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Config file not found: %s", options_.cfg_file_path.c_str());
     exit(-1);
   }
 
   try {
-    RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "Initializing AimRTCore, config file: %s", options.cfg_file_path.c_str());
-    core.Initialize(options);
+    RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "Initializing AimRTCore, config file: %s", options_.cfg_file_path.c_str());
+    core_.Initialize(options_);
     RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "AimRTCore initialized successfully");
   } catch (const std::exception& e) {
     RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "AimRTCore initialization error: %s", e.what());
@@ -398,61 +398,81 @@ void LeggedSystemHardware::aimrtInit(){
   }
 
   // Create Module
-  aimrt::CoreRef module_handle(core.GetModuleManager().CreateModule("LeggedSystemModule"));
+  aimrt::CoreRef module_handle(core_.GetModuleManager().CreateModule("LeggedSystemModule"));
 
   // Create Publishers
   aimrtLegCmdPublisher_= module_handle.GetChannelHandle().GetPublisher("/body_drive/leg_joint_command");
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Get publisher for topic '%s' %s", "/body_drive/leg_joint_command", aimrtLegCmdPublisher_ ? "success" : "failed");
+  if (!aimrtLegCmdPublisher_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get publisher for topic '/body_drive/leg_joint_command' failed");
+    throw std::runtime_error("Get publisher for topic '/body_drive/leg_joint_command' failed");
+  }
 
   aimrtArmCmdPublisher_= module_handle.GetChannelHandle().GetPublisher("/body_drive/arm_joint_command");
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Get publisher for topic '%s' %s", "/body_drive/arm_joint_command", aimrtArmCmdPublisher_ ? "success" : "failed");
+  if (!aimrtArmCmdPublisher_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get publisher for topic '/body_drive/arm_joint_command' failed");
+    throw std::runtime_error("Get publisher for topic '/body_drive/arm_joint_command' failed");
+  }
 
   bool ret = aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimrtLegCmdPublisher_);
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Register publish type for aimrtLegCmdPublisher_ (topic: /body_drive/leg_joint_command) %s", ret ? "success" : "failed");
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Register publish type for aimrtLegCmdPublisher_ (topic: /body_drive/leg_joint_command) failed");
+    throw std::runtime_error("Register publish type for aimrtLegCmdPublisher_ failed");
+  }
               
   ret = aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimrtArmCmdPublisher_);
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Register publish type for aimrtArmCmdPublisher_ (topic: /body_drive/arm_joint_command) %s", ret ? "success" : "failed");
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Register publish type for aimrtArmCmdPublisher_ (topic: /body_drive/arm_joint_command) failed");
+    throw std::runtime_error("Register publish type for aimrtArmCmdPublisher_ failed");
+  }
   
   aimrtLegCmdPublisherProxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimrtLegCmdPublisher_);
   aimrtArmCmdPublisherProxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimrtArmCmdPublisher_);
   
   // Create Subscribers
   aimrtMotorStateSubscriber_= module_handle.GetChannelHandle().GetSubscriber("/body_drive/leg_joint_state");
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Get subscriber for topic '%s' %s", "/body_drive/leg_joint_state", aimrtMotorStateSubscriber_ ? "success" : "failed");
+  if (!aimrtMotorStateSubscriber_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get subscriber for topic '/body_drive/leg_joint_state' failed");
+    throw std::runtime_error("Get subscriber for topic '/body_drive/leg_joint_state' failed");
+  }
 
   ret = aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
     aimrtMotorStateSubscriber_,
     std::bind(&LeggedSystemHardware::legStateCallback, this, std::placeholders::_1));
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Subscribe to topic '%s' %s", "/body_drive/leg_joint_state", ret ? "success" : "failed");
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Subscribe to topic '/body_drive/leg_joint_state' failed");
+    throw std::runtime_error("Subscribe to topic '/body_drive/leg_joint_state' failed");
+  }
               
   aimrtArmMotorStateSubscriber_= module_handle.GetChannelHandle().GetSubscriber("/body_drive/arm_joint_state");
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Get subscriber for topic '%s' %s", "/body_drive/arm_joint_state", aimrtArmMotorStateSubscriber_ ? "success" : "failed");
+  if (!aimrtArmMotorStateSubscriber_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get subscriber for topic '/body_drive/arm_joint_state' failed");
+    throw std::runtime_error("Get subscriber for topic '/body_drive/arm_joint_state' failed");
+  }
 
   ret = aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
     aimrtArmMotorStateSubscriber_,
     std::bind(&LeggedSystemHardware::armStateCallback, this, std::placeholders::_1));
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Subscribe to topic '%s' %s", "/body_drive/arm_joint_state", ret ? "success" : "failed");
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Subscribe to topic '/body_drive/arm_joint_state' failed");
+    throw std::runtime_error("Subscribe to topic '/body_drive/arm_joint_state' failed");
+  }
 
   aimrtImuSubscriber_= module_handle.GetChannelHandle().GetSubscriber("/body_drive/imu/data");
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Get subscriber for topic '%s' %s", "/body_drive/imu/data", aimrtImuSubscriber_ ? "success" : "failed");
+  if (!aimrtImuSubscriber_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get subscriber for topic '/body_drive/imu/data' failed");
+    throw std::runtime_error("Get subscriber for topic '/body_drive/imu/data' failed");
+  }
 
   ret = aimrt::channel::Subscribe<sensor_msgs::msg::Imu>(
     aimrtImuSubscriber_,
     std::bind(&LeggedSystemHardware::imuCallback, this, std::placeholders::_1));
-  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"),
-              "Subscribe to topic '%s' %s", "/body_drive/imu/data", ret ? "success" : "failed");
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Subscribe to topic '/body_drive/imu/data' failed");
+    throw std::runtime_error("Subscribe to topic '/body_drive/imu/data' failed");
+  }
   
   //start Async
-  fu = core.AsyncStart();
+  fu_ = core_.AsyncStart();
 }
 
 hardware_interface::CallbackReturn LeggedSystemHardware::on_deactivate(
@@ -465,8 +485,8 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_deactivate(
   }
   
   // Shutdown AimRTCore
-  core.Shutdown();
-  fu.wait();
+  core_.Shutdown();
+  fu_.wait();
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 

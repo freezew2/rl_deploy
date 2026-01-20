@@ -136,8 +136,8 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
   std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
   std::thread executor_thread_;
 
-  aimrt::runtime::core::AimRTCore core;
-  aimrt::runtime::core::AimRTCore::Options options;
+  aimrt::runtime::core::AimRTCore core_;
+  aimrt::runtime::core::AimRTCore::Options options_;
   aimrt::CoreRef module_handle;
   aimrt::channel::SubscriberRef aimrtMotorStateSubscriber_;
   aimrt::channel::SubscriberRef aimrtArmMotorStateSubscriber_;
@@ -146,7 +146,7 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
   aimrt::channel::PublisherRef aimrtArmCmdPublisher_;
   std::unique_ptr<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>> aimrtLegCmdPublisherProxy_;
   std::unique_ptr<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>> aimrtArmCmdPublisherProxy_;
-  std::future<void> fu;
+  std::future<void> fu_;
 
   std::shared_ptr<rclcpp::Node> node_;
 
