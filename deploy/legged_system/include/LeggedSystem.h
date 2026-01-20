@@ -138,7 +138,7 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
 
   aimrt::runtime::core::AimRTCore core_;
   aimrt::runtime::core::AimRTCore::Options options_;
-  aimrt::CoreRef module_handle;
+  aimrt::CoreRef module_handle_;
   aimrt::channel::SubscriberRef aimrtMotorStateSubscriber_;
   aimrt::channel::SubscriberRef aimrtArmMotorStateSubscriber_;
   aimrt::channel::SubscriberRef aimrtImuSubscriber_;
