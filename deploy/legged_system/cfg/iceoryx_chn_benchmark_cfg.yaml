@@ -2,7 +2,7 @@ aimrt:
   plugin:
     plugins:
       - name: iceoryx_plugin
-        path: /home/agi/a2_deploy_workspace/deploy/install/legged_system/bin/libaimrt_iceoryx_plugin.so
+        path: ${PLUGIN_INSTALL_DIR}/libaimrt_iceoryx_plugin.so
         options:
           node_name: rl_deploy 
   log:

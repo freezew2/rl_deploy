@@ -2,7 +2,7 @@ aimrt:
   plugin:
     plugins:
       - name: ros2_plugin
-        path: /home/agi/a2_deploy_workspace/deploy/install/legged_system/bin/libaimrt_ros2_plugin.so
+        path: ${PLUGIN_INSTALL_DIR}/libaimrt_ros2_plugin.so
         options:
           node_name: rl_deploy 
   log:

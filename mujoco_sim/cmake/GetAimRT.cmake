@@ -6,7 +6,7 @@ include(FetchContent)
 message(STATUS "get aimrt ...")
 
 set(aimrt_DOWNLOAD_URL
-    "https://github.com/AimRT/AimRT/archive/refs/tags/v1.2.0.tar.gz"
+    "https://github.com/AimRT/AimRT/archive/refs/tags/v1.4.0.tar.gz"
     CACHE STRING "")
 
 if(aimrt_LOCAL_SOURCE)
@@ -41,7 +41,9 @@ function(get_aimrt)
     set(AIMRT_BUILD_TIME_MANIPULATOR_PLUGIN ON)
     set(AIMRT_BUILD_ECHO_PLUGIN ON)
     set(AIMRT_BUILD_ICEORYX_PLUGIN ON)
-
+    # set(CMAKE_POLICY_VERSION_MINIMUM
+    #     3.5
+    #     CACHE STRING "Minimum CMake policy version" FORCE)
     FetchContent_MakeAvailable(aimrt)
   endif()
 endfunction()
