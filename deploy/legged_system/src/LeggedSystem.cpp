@@ -298,6 +298,30 @@ std::vector<hardware_interface::StateInterface> LeggedSystemHardware::export_sta
         info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &SerialJointData_[i].tau_));
   }
 
+  // ===== IMU state interfaces =====
+  state_interfaces.emplace_back(
+    "imu", "orientation.x", &imu_orientation_[0]);
+  state_interfaces.emplace_back(
+    "imu", "orientation.y", &imu_orientation_[1]);
+  state_interfaces.emplace_back(
+    "imu", "orientation.z", &imu_orientation_[2]);
+  state_interfaces.emplace_back(
+    "imu", "orientation.w", &imu_orientation_[3]);
+
+  state_interfaces.emplace_back(
+    "imu", "angular_velocity.x", &imu_angular_velocity_[0]);
+  state_interfaces.emplace_back(
+    "imu", "angular_velocity.y", &imu_angular_velocity_[1]);
+  state_interfaces.emplace_back(
+    "imu", "angular_velocity.z", &imu_angular_velocity_[2]);
+
+  state_interfaces.emplace_back(
+    "imu", "linear_acceleration.x", &imu_linear_acceleration_[0]);
+  state_interfaces.emplace_back(
+    "imu", "linear_acceleration.y", &imu_linear_acceleration_[1]);
+  state_interfaces.emplace_back(
+    "imu", "linear_acceleration.z", &imu_linear_acceleration_[2]);
+
   return state_interfaces;
 }
 
@@ -327,6 +351,12 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
   RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "Activating ...please wait...");
 
   this->node_ = std::make_shared<rclcpp::Node>("hardware_node");
+
+  this->node_->declare_parameter<std::string>("aimrt_cfg_path");
+  auto aimrt_cfg_path = this->node_->get_parameter("aimrt_cfg_path").as_string();
+  RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "aimrt_cfg_path: %s", aimrt_cfg_path.c_str());
+  options_.cfg_file_path = aimrt_cfg_path;
+  
   motorPosPublisher_ = this->node_->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/motor_pos", 1);
   motorVelPublisher_ = this->node_->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/motor_vel", 1);
   motorTorquePublisher_ =
@@ -340,23 +370,109 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
   motorCmdTorquePublisher_ =
       this->node_->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/motor_cmd_torque", 1);
 
-  aimRTMotorCommandPubulisher_ =
-      this->node_->create_publisher<joint_msgs::msg::JointCommand>("/body_drive/leg_joint_command", 1);
-  aimRTArmMotorCommandPubulisher_ =
-      this->node_->create_publisher<joint_msgs::msg::JointCommand>("/body_drive/arm_joint_command", 1);
-  aimRTMotorStateSubscriber_ = this->node_->create_subscription<joint_msgs::msg::JointState>(
-      "/body_drive/leg_joint_state", 1,
-      std::bind(&LeggedSystemHardware::legStateCallback, this, std::placeholders::_1));
-  aimRTArmMotorStateSubscriber_ = this->node_->create_subscription<joint_msgs::msg::JointState>(
-      "/body_drive/arm_joint_state", 1,
-      std::bind(&LeggedSystemHardware::armStateCallback, this, std::placeholders::_1));
-  imuPub_ = this->node_->create_publisher<sensor_msgs::msg::Imu>("/imu/data", 10);
+  tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this->node_);
 
   executor_ = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
   executor_->add_node(this->node_);
   executor_thread_ = std::thread([this]() { executor_->spin(); });
 
+  aimrtInit();
+
   return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+void LeggedSystemHardware::aimrtInit(){
+  // Initialize
+  if (!std::filesystem::exists(options_.cfg_file_path)) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Config file not found: %s", options_.cfg_file_path.c_str());
+    exit(-1);
+  }
+
+  try {
+    RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "Initializing AimRTCore, config file: %s", options_.cfg_file_path.c_str());
+    core_.Initialize(options_);
+    RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "AimRTCore initialized successfully");
+  } catch (const std::exception& e) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "AimRTCore initialization error: %s", e.what());
+    exit(-1);
+  }
+
+  // Create Module
+  aimrt::CoreRef module_handle_(core_.GetModuleManager().CreateModule("LeggedSystemModule"));
+
+  // Create Publishers
+  aimrtLegCmdPublisher_= module_handle_.GetChannelHandle().GetPublisher("/body_drive/leg_joint_command");
+  if (!aimrtLegCmdPublisher_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get publisher for topic '/body_drive/leg_joint_command' failed");
+    throw std::runtime_error("Get publisher for topic '/body_drive/leg_joint_command' failed");
+  }
+
+  aimrtArmCmdPublisher_= module_handle_.GetChannelHandle().GetPublisher("/body_drive/arm_joint_command");
+  if (!aimrtArmCmdPublisher_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get publisher for topic '/body_drive/arm_joint_command' failed");
+    throw std::runtime_error("Get publisher for topic '/body_drive/arm_joint_command' failed");
+  }
+
+  bool ret = aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimrtLegCmdPublisher_);
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Register publish type for aimrtLegCmdPublisher_ (topic: /body_drive/leg_joint_command) failed");
+    throw std::runtime_error("Register publish type for aimrtLegCmdPublisher_ failed");
+  }
+              
+  ret = aimrt::channel::RegisterPublishType<joint_msgs::msg::JointCommand>(aimrtArmCmdPublisher_);
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Register publish type for aimrtArmCmdPublisher_ (topic: /body_drive/arm_joint_command) failed");
+    throw std::runtime_error("Register publish type for aimrtArmCmdPublisher_ failed");
+  }
+  
+  aimrtLegCmdPublisherProxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimrtLegCmdPublisher_);
+  aimrtArmCmdPublisherProxy_ = std::make_unique<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>>(aimrtArmCmdPublisher_);
+  
+  // Create Subscribers
+  aimrtMotorStateSubscriber_= module_handle_.GetChannelHandle().GetSubscriber("/body_drive/leg_joint_state");
+  if (!aimrtMotorStateSubscriber_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get subscriber for topic '/body_drive/leg_joint_state' failed");
+    throw std::runtime_error("Get subscriber for topic '/body_drive/leg_joint_state' failed");
+  }
+
+  ret = aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
+    aimrtMotorStateSubscriber_,
+    std::bind(&LeggedSystemHardware::legStateCallback, this, std::placeholders::_1));
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Subscribe to topic '/body_drive/leg_joint_state' failed");
+    throw std::runtime_error("Subscribe to topic '/body_drive/leg_joint_state' failed");
+  }
+              
+  aimrtArmMotorStateSubscriber_= module_handle_.GetChannelHandle().GetSubscriber("/body_drive/arm_joint_state");
+  if (!aimrtArmMotorStateSubscriber_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get subscriber for topic '/body_drive/arm_joint_state' failed");
+    throw std::runtime_error("Get subscriber for topic '/body_drive/arm_joint_state' failed");
+  }
+
+  ret = aimrt::channel::Subscribe<joint_msgs::msg::JointState>(
+    aimrtArmMotorStateSubscriber_,
+    std::bind(&LeggedSystemHardware::armStateCallback, this, std::placeholders::_1));
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Subscribe to topic '/body_drive/arm_joint_state' failed");
+    throw std::runtime_error("Subscribe to topic '/body_drive/arm_joint_state' failed");
+  }
+
+  aimrtImuSubscriber_= module_handle_.GetChannelHandle().GetSubscriber("/body_drive/imu/data");
+  if (!aimrtImuSubscriber_) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Get subscriber for topic '/body_drive/imu/data' failed");
+    throw std::runtime_error("Get subscriber for topic '/body_drive/imu/data' failed");
+  }
+
+  ret = aimrt::channel::Subscribe<sensor_msgs::msg::Imu>(
+    aimrtImuSubscriber_,
+    std::bind(&LeggedSystemHardware::imuCallback, this, std::placeholders::_1));
+  if (!ret) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Subscribe to topic '/body_drive/imu/data' failed");
+    throw std::runtime_error("Subscribe to topic '/body_drive/imu/data' failed");
+  }
+  
+  //start Async
+  fu_ = core_.AsyncStart();
 }
 
 hardware_interface::CallbackReturn LeggedSystemHardware::on_deactivate(
@@ -367,7 +483,10 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_deactivate(
     executor_->cancel();
     executor_thread_.join();
   }
-
+  
+  // Shutdown AimRTCore
+  core_.Shutdown();
+  fu_.wait();
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
@@ -420,6 +539,19 @@ hardware_interface::return_type LeggedSystemHardware::read(const rclcpp::Time& /
     SerialJointData_[i].kp_ = 0;
     SerialJointData_[i].kd_ = 1.5;
   }
+
+  imu_orientation_[0] = bodyDriveIMU_.orientation.x;
+  imu_orientation_[1] = bodyDriveIMU_.orientation.y;
+  imu_orientation_[2] = bodyDriveIMU_.orientation.z;
+  imu_orientation_[3] = bodyDriveIMU_.orientation.w;
+
+  imu_angular_velocity_[0] = bodyDriveIMU_.angular_velocity.x;
+  imu_angular_velocity_[1] = bodyDriveIMU_.angular_velocity.y;
+  imu_angular_velocity_[2] = bodyDriveIMU_.angular_velocity.z;
+
+  imu_linear_acceleration_[0] = bodyDriveIMU_.linear_acceleration.x;
+  imu_linear_acceleration_[1] = bodyDriveIMU_.linear_acceleration.y;
+  imu_linear_acceleration_[2] = bodyDriveIMU_.linear_acceleration.z;
 
   return hardware_interface::return_type::OK;
 }
@@ -474,10 +606,10 @@ hardware_interface::return_type LeggedSystemHardware::write(const rclcpp::Time& 
     }
   }
 
-  aimRTMotorCommandPubulisher_->publish(legJointCommand_);
+  aimrtLegCmdPublisherProxy_->Publish(legJointCommand_);
 
   if (!firstReceiveArmState) {
-    aimRTArmMotorCommandPubulisher_->publish(armJointCommand_);
+    aimrtArmCmdPublisherProxy_->Publish(armJointCommand_);
   }
 
   if (useAnkleTorque_) {

@@ -24,6 +24,9 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+
 #include "Types.h"
 #include "realtime_tools/realtime_box.hpp"
 #include "realtime_tools/realtime_buffer.hpp"
@@ -38,6 +41,10 @@
 
 #include "ClosedAnkleWristParam.h"
 #include "LoopAnkleAnalyticalSolver.h"
+
+#include "aimrt_module_cpp_interface/core.h"
+#include "aimrt_module_ros2_interface/channel/ros2_channel.h"
+#include "core/aimrt_core.h"
 
 namespace legged {
 
@@ -61,16 +68,21 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
   hardware_interface::CallbackReturn on_deactivate(const rclcpp_lifecycle::State &previous_state) override;
   hardware_interface::return_type read(const rclcpp::Time &time, const rclcpp::Duration &period) override;
   hardware_interface::return_type write(const rclcpp::Time &time, const rclcpp::Duration &period) override;
+  
+
 
  private:
   void processClosedChainState();
   void processClosedChainCommands();
 
-  void odomCallBack(const sensor_msgs::msg::Imu::SharedPtr msg) {
+  void aimrtInit();
+
+  void imuCallback(const std::shared_ptr<const sensor_msgs::msg::Imu>& msg) {
     bodyDriveIMU_ = *msg;
+    publishImuTransform(bodyDriveIMU_);
   }
 
-  void legStateCallback(const joint_msgs::msg::JointState::SharedPtr msg) {
+  void legStateCallback(const std::shared_ptr<const joint_msgs::msg::JointState>& msg) {
     for (int i = 0; i < 12; i++) {
       bodyDriveJointData_[i].pos_ = msg->joints[i].position;
       bodyDriveJointData_[i].vel_ = msg->joints[i].velocity;
@@ -78,7 +90,7 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
     }
   }
 
-  void armStateCallback(const joint_msgs::msg::JointState::SharedPtr msg) {
+  void armStateCallback(const std::shared_ptr<const joint_msgs::msg::JointState>& msg) {
     for (int i = 12; i < 26; i++) {
       bodyDriveJointData_[i].pos_ = msg->joints[i - 12].position;
       bodyDriveJointData_[i].vel_ = msg->joints[i - 12].velocity;
@@ -87,11 +99,29 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
     firstReceiveArmState = false;
   }
 
+  void publishImuTransform(const sensor_msgs::msg::Imu &imu_msg) {
+    geometry_msgs::msg::TransformStamped transformStamped;
+
+    transformStamped.header.stamp = node_->now();;
+    transformStamped.header.frame_id = "base_link";   
+    transformStamped.child_frame_id = "world_frame";  
+
+    transformStamped.transform.translation.x = 0.0;
+    transformStamped.transform.translation.y = 0.0;
+    transformStamped.transform.translation.z = 0.0;
+
+    transformStamped.transform.rotation = imu_msg.orientation;
+
+    tfBroadcaster_->sendTransform(transformStamped);
+  }
+
   MotorData SerialJointData_[26]{};
   MotorDataFloat bodyDriveJointData_[26]{};
   sensor_msgs::msg::Imu bodyDriveIMU_;
+  double imu_orientation_[4];     
+  double imu_angular_velocity_[3];
+  double imu_linear_acceleration_[3];
 
-  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imuPub_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr motorPosPublisher_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr motorVelPublisher_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr motorTorquePublisher_;
@@ -102,14 +132,21 @@ class LeggedSystemHardware : public hardware_interface::SystemInterface {
 
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr motorCmdTorquePublisher_;
 
-  rclcpp::Publisher<joint_msgs::msg::JointCommand>::SharedPtr aimRTMotorCommandPubulisher_;
-  rclcpp::Publisher<joint_msgs::msg::JointCommand>::SharedPtr aimRTArmMotorCommandPubulisher_;
-  rclcpp::Subscription<joint_msgs::msg::JointState>::SharedPtr aimRTMotorStateSubscriber_;
-  rclcpp::Subscription<joint_msgs::msg::JointState>::SharedPtr aimRTArmMotorStateSubscriber_;
-
-  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr yesenseImuSub_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
   std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
   std::thread executor_thread_;
+
+  aimrt::runtime::core::AimRTCore core_;
+  aimrt::runtime::core::AimRTCore::Options options_;
+  aimrt::CoreRef module_handle_;
+  aimrt::channel::SubscriberRef aimrtMotorStateSubscriber_;
+  aimrt::channel::SubscriberRef aimrtArmMotorStateSubscriber_;
+  aimrt::channel::SubscriberRef aimrtImuSubscriber_;
+  aimrt::channel::PublisherRef aimrtLegCmdPublisher_;
+  aimrt::channel::PublisherRef aimrtArmCmdPublisher_;
+  std::unique_ptr<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>> aimrtLegCmdPublisherProxy_;
+  std::unique_ptr<aimrt::channel::PublisherProxy<joint_msgs::msg::JointCommand>> aimrtArmCmdPublisherProxy_;
+  std::future<void> fu_;
 
   std::shared_ptr<rclcpp::Node> node_;
 

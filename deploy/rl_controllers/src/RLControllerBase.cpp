@@ -26,7 +26,7 @@ controller_interface::CallbackReturn RLControllerBase::on_init() {
                 "idx13_left_arm_joint1", "idx14_left_arm_joint2", "idx15_left_arm_joint3", "idx16_left_arm_joint4", "idx17_left_arm_joint5", "idx18_left_arm_joint6", "idx19_left_arm_joint7",
                 "idx20_right_arm_joint1", "idx21_right_arm_joint2", "idx22_right_arm_joint3", "idx23_right_arm_joint4", "idx24_right_arm_joint5", "idx25_right_arm_joint6", "idx26_right_arm_joint7"};
 
-  // 将参数服务器中的变量存入joint_names_,command_interface, state_interface
+  // Store variables from the parameter server into joint_names_, command_interface_types_, and state_interface_types_
   joint_names_ = auto_declare<std::vector<std::string>>("joints", joint_names_);
   command_interface_types_ =
       auto_declare<std::vector<std::string>>("command_interfaces", command_interface_types_);
@@ -99,9 +99,6 @@ controller_interface::CallbackReturn RLControllerBase::on_init() {
   realImuLinearAccPublisher_ = get_node()->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/imu_linear_acc", 1);
   realImuEulerXyzPulbisher_ = get_node()->create_publisher<std_msgs::msg::Float64MultiArray>("data_analysis/imu_euler_xyz", 1);
   phasePublisher_ = get_node()->create_publisher<std_msgs::msg::Float64>("data_analysis/phase", 1);
-
-  imuSub_ = get_node()->create_subscription<sensor_msgs::msg::Imu>(
-      "/body_drive/imu/data", 1, std::bind(&RLControllerBase::imuCallback, this, std::placeholders::_1));
 
   cmdVelSub_ = get_node()->create_subscription<geometry_msgs::msg::Twist>(
       "/cmd_vel", 1, std::bind(&RLControllerBase::cmdVelCallback, this, std::placeholders::_1));
@@ -217,11 +214,11 @@ controller_interface::CallbackReturn RLControllerBase::on_configure([[maybe_unus
 // Second
 controller_interface::InterfaceConfiguration RLControllerBase::command_interface_configuration()
     const {
-  // 配置初始化
+  // Initialize configuration
   controller_interface::InterfaceConfiguration conf = {config_type::INDIVIDUAL, {}};
-  // 预留空间 大小为关节数量乘每个关节的指令数量
+  // Reserve space: number of joints × number of command interfaces
   conf.names.reserve(joint_names_.size() * command_interface_types_.size());
-  // 遍历所有关节名称和命令类型接口，并存入conf.names中
+  // Iterate over all joint names and command interface types, and store them in conf.names
   for (const auto &joint_name : joint_names_) {
     for (const auto &interface_type : command_interface_types_) {
       conf.names.push_back(joint_name + "/" + interface_type);
@@ -240,6 +237,20 @@ controller_interface::InterfaceConfiguration RLControllerBase::state_interface_c
       conf.names.push_back(joint_name + "/" + interface_type);
     }
   }
+
+  // ===== IMU state interfaces =====
+  conf.names.push_back("imu/orientation.x");
+  conf.names.push_back("imu/orientation.y");
+  conf.names.push_back("imu/orientation.z"); 
+  conf.names.push_back("imu/orientation.w");
+
+  conf.names.push_back("imu/angular_velocity.x");
+  conf.names.push_back("imu/angular_velocity.y");
+  conf.names.push_back("imu/angular_velocity.z");
+
+  conf.names.push_back("imu/linear_acceleration.x");
+  conf.names.push_back("imu/linear_acceleration.y");
+  conf.names.push_back("imu/linear_acceleration.z");
 
   return conf;
 }
@@ -285,7 +296,7 @@ controller_interface::CallbackReturn RLControllerBase::on_activate(const rclcpp_
 }
 
 void RLControllerBase::starting() {
-  // 更新状态
+  // Update Status
   updateStateEstimation(get_node()->now(), rclcpp::Duration::from_seconds(0.002));
   currentJointAngles_.resize(actuatedDofNum_);
 
@@ -339,6 +350,20 @@ controller_interface::return_type RLControllerBase::update(
   }
 
   loopCount_++;
+
+  size_t imu_offset = joint_names_.size() * state_interface_types_.size();
+  imuData_.orientation.x = state_interfaces_[imu_offset + 0].get_value();
+  imuData_.orientation.y = state_interfaces_[imu_offset + 1].get_value();
+  imuData_.orientation.z = state_interfaces_[imu_offset + 2].get_value();
+  imuData_.orientation.w = state_interfaces_[imu_offset + 3].get_value();
+
+  imuData_.angular_velocity.x = state_interfaces_[imu_offset + 4].get_value();
+  imuData_.angular_velocity.y = state_interfaces_[imu_offset + 5].get_value();
+  imuData_.angular_velocity.z = state_interfaces_[imu_offset + 6].get_value();
+
+  imuData_.linear_acceleration.x = state_interfaces_[imu_offset + 7].get_value();
+  imuData_.linear_acceleration.y = state_interfaces_[imu_offset + 8].get_value();
+  imuData_.linear_acceleration.z = state_interfaces_[imu_offset + 9].get_value();
 
   return controller_interface::return_type::OK;
 }
@@ -539,31 +564,6 @@ void RLControllerBase::joyInfoCallback(const sensor_msgs::msg::Joy::SharedPtr ms
     // std::cout << joyInfo.buttons[i];
     // std::cout << std::endl;
   }
-}
-
-void RLControllerBase::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
-  imuData_ = *msg;
-  publishImuTransform(*msg);
-}
-
-void RLControllerBase::publishImuTransform(const sensor_msgs::msg::Imu &imu_msg) {
-  geometry_msgs::msg::TransformStamped transformStamped;
-
-  // Set header information
-  transformStamped.header.stamp = get_node()->now();
-  transformStamped.header.frame_id = "base_link";   // The base frame of your robot
-  transformStamped.child_frame_id = "world_frame";  // The frame name for the IMU
-
-  // Set translation (modify these values based on the physical IMU position on your robot)
-  transformStamped.transform.translation.x = 0.0;
-  transformStamped.transform.translation.y = 0.0;
-  transformStamped.transform.translation.z = 0.0;
-
-  // Set rotation from the IMU message
-  transformStamped.transform.rotation = imu_msg.orientation;
-
-  // Publish the transform
-  tfBroadcaster_->sendTransform(transformStamped);
 }
 
 // Function to read CSV file and store data in a 2D vector
