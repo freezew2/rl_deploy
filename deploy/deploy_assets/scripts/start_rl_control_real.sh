@@ -13,5 +13,7 @@ pushd "$SHELL_FOLDER"/../../ || exit
     echo $pwd
     source setup.bash
     export LD_LIBRARY_PATH=./deploy_assets/thirdparty/onnxruntime-linux-x64-1.19.2/lib:$LD_LIBRARY_PATH
+    export PLUGIN_INSTALL_DIR=/home/agi/deploy/install/legged_system/bin
+    export AIMRT_CFG_PATH=../install/legged_system/bin/ros_chn_cfg.yaml
     ros2 launch rl_controllers rl_control_real.launch.py
 popd || exit
