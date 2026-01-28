@@ -384,10 +384,15 @@ hardware_interface::CallbackReturn LeggedSystemHardware::on_activate(
 void LeggedSystemHardware::aimrtInit(){
   // Initialize
   if (!std::filesystem::exists(options_.cfg_file_path)) {
-    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"), "Config file not found: %s", options_.cfg_file_path.c_str());
-    exit(-1);
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"),"Config file path does not exist: %s",options_.cfg_file_path.c_str());
+    std::exit(EXIT_FAILURE);
   }
 
+  if (!std::filesystem::is_regular_file(options_.cfg_file_path)) {
+    RCLCPP_ERROR(rclcpp::get_logger("LeggedSystemHardware"),"Config path exists but is not a regular file: %s",options_.cfg_file_path.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+  
   try {
     RCLCPP_INFO(rclcpp::get_logger("LeggedSystemHardware"), "Initializing AimRTCore, config file: %s", options_.cfg_file_path.c_str());
     core_.Initialize(options_);
